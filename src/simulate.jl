@@ -304,12 +304,12 @@ the scaling is done after the per-observation noise is added as a standard norma
 """
 function unscaledre! end
 
-function unscaledre!(rng::AbstractRNG, y::AbstractVector{T}, A::ReMat{T,S}) where {T,S}
+function unscaledre!(rng::AbstractRNG, y::AbstractVector{T}, A::DefaultReMat{T,S}) where {T,S}
     return mul!(y, A, vec(lmul!(A.λ, randn(rng, S, nlevs(A)))), one(T), one(T))
 end
 
-function unscaledre!(rng::AbstractRNG, y::AbstractVector{T}, A::ReMat{T,1}) where {T}
+function unscaledre!(rng::AbstractRNG, y::AbstractVector{T}, A::DefaultReMat{T,1}) where {T}
     return mul!(y, A, lmul!(first(A.λ), randn(rng, nlevs(A))), one(T), one(T))
 end
 
-unscaledre!(y::AbstractVector, A::ReMat) = unscaledre!(Random.GLOBAL_RNG, y, A)
+unscaledre!(y::AbstractVector, A::DefaultReMat) = unscaledre!(Random.GLOBAL_RNG, y, A)

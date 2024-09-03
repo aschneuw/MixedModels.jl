@@ -127,7 +127,7 @@ function StatsModels.modelcols(t::RandomEffectsTerm, d::NamedTuple)
     end
     refs, levels = _ranef_refs(grp, d)
 
-    return ReMat{T,S}(
+    return DefaultReMat{T,S}(
         grp,
         refs,
         levels,

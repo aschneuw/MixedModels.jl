@@ -47,7 +47,7 @@ function TableColumns(m::LinearMixedModel{T}) where {T}
     lastpos += sz
     corrpos = NTuple{3,Int}[]
     for (i, re) in enumerate(m.reterms)
-        (isa(re.λ, Diagonal) || isa(re, ReMat{T,1})) && continue
+        (isa(re.λ, Diagonal) || isa(re, DefaultReMat{T,1})) && continue
         indm = indmat(re)
         for j in axes(indm, 1)
             rowj = view(indm, j, :)

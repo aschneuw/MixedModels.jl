@@ -118,7 +118,6 @@ function adjA(refs::AbstractVector, z::AbstractMatrix)
 end
 
 Base.size(A::ReMat) = (length(A.refs), length(A.scratch))
-Base.size(A::FlexReMat) = (size(A.adjA,2),size(A.adjA,1))
 
 SparseArrays.sparse(A::ReMat) = adjoint(A.adjA)
 
@@ -320,22 +319,22 @@ function Base.:(*)(adjA::Adjoint{T,<:ReMat{T}}, B::ReMat{T}) where {T}
     println("multiplication for two arbitrary random effects")
     A = adjA.parent 
     C = MixedModels.adjA(A.refs, A.wtz) * sparse(adjoint(MixedModels.adjA(B.refs, B.wtz)))
-    return sparse(C)
+    return C
 end
 
 function Base.:(*)(adjA::Adjoint{T,<:DefaultReMat{T}}, B::FlexReMat{T}) where {T}
     println("multiplication for FlexRemat times ReMat")
-    return sparse(MixedModels.adjA(adjA.parent.refs, adjA.parent.wtz) * adjoint(B.wtz))
+    return MixedModels.adjA(adjA.parent.refs, adjA.parent.wtz) * adjoint(B.wtz)
 end
 
 function Base.:(*)(adjA::Adjoint{T,<:FlexReMat{T}}, B::DefaultReMat{T}) where {T}
     println("multiplication for ReMat times FlexReMat")
-    return sparse(adjA.parent.wtz * adjoint(MixedModels.adjA(B.refs, B.wtz)))
+    return adjA.parent.wtz * adjoint(MixedModels.adjA(B.refs, B.wtz))
 end
 
 function Base.:(*)(adjA::Adjoint{T,<:FlexReMat{T}}, B::FlexReMat{T}) where {T}
     println("multiplication for ReMat times FlexReMat")
-    return sparse(adjA.parent.wtz * adjoint(B.wtz))
+    return adjA.parent.wtz * adjoint(B.wtz)
 end
 
 """
@@ -378,7 +377,7 @@ function LinearAlgebra.mul!(
     C::Matrix{T}, adjA::Adjoint{T,<:FeMat{T}}, B::FlexReMat{T}, α::Number, β::Number
 ) where {T}
     println("multiplication for FeMat times FlexReMat")
-    p, n = size(adjA) # numer of rows, # number of FR columns
+    n, p = size(adjA) # numer of rows, # number of FR columns
     m, q = size(B) # number of rows, # number of RE columns
     size(C) == (p, q) && m == n || throw(DimensionMismatch()) # dim check
     isone(β) || rmul!(C, β) # scale C by beta if β not one
@@ -486,7 +485,7 @@ function LinearAlgebra.mul!(
 end
 
 """
-multiplication of C with the same random effects - same dimension, same data
+multiplication of C with the same random effects - same dimension
 """
 function LinearAlgebra.mul!(
     C::UniformBlockDiagonal{T}, adjA::Adjoint{T,DefaultReMat{T,S}}, B::DefaultReMat{T,S}
@@ -823,33 +822,6 @@ function copyscaleinflate!(
     Ajj::UniformBlockDiagonal{T},
     Λj::ReMat{T,S},
 ) where {T,S}
-    copyto!(Ljj, Ajj)
-    n = LinearAlgebra.checksquare(Ljj)
-    q, r = divrem(n, S)
-    iszero(r) || throw(DimensionMismatch("size(Ljj, 1) is not a multiple of S"))
-    λ = Λj.λ
-    offset = 0
-    @inbounds for _ in 1:q
-        inds = (offset + 1):(offset + S)
-        tmp = view(Ljj, inds, inds)
-        lmul!(adjoint(λ), rmul!(tmp, λ))
-        offset += S
-    end
-    for k in diagind(Ljj)
-        Ljj[k] += one(T)
-    end
-    return Ljj
-end
-
-"""
-test
-"""
-function copyscaleinflate!(
-    Ljj::Matrix{T},
-    Ajj::Matrix{T},
-    Λj::FlexReMat{T},
-) where {T}
-    S = 1
     copyto!(Ljj, Ajj)
     n = LinearAlgebra.checksquare(Ljj)
     q, r = divrem(n, S)

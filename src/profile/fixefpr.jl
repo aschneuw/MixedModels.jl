@@ -14,8 +14,8 @@ Return a shallow copy of ReMat.
 A shallow copy shares as much internal storage as possible with the original ReMat.
 Only the vector `λ` and the `scratch` matrix are copied.
 """
-function Base.copy(ret::ReMat{T,S}) where {T,S}
-    return ReMat{T,S}(ret.trm,
+function Base.copy(ret::DefaultReMat{T,S}) where {T,S}
+    return DefaultReMat{T,S}(ret.trm,
         ret.refs,
         ret.levels,
         ret.cnames,
