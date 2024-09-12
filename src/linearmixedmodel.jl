@@ -415,6 +415,7 @@ function createAL(reterms::Vector{<:AbstractReMat{T}}, Xy::FeMat{T}) where {T}
             if !isnested(cj, ci)
                 for l in i:k
                     ind = block(l, i)
+                    #println("convert to matrix block $(ind) $(size(L[ind]))")
                     L[ind] = Matrix(L[ind])
                 end
                 break
@@ -487,7 +488,16 @@ function StatsAPI.fit!(
             optsum.finitial
         else
             try
-                objective(updateL!(setθ!(m, x)))
+                #println("Start Call Theta: $(now())")
+                m = setθ!(m, x)
+                #println("Stop Call Theta: $(now())")
+                #println("Start Call Update L: $(now())")
+                m = updateL!(m)
+                #println("Stop Call Update L: $(now())")
+                #println("Start Call Objective: $(now())")
+                v = objective(m)
+                #print("Stop Call Objective: $(now())")
+                v
             catch ex
                 # This can happen when the optimizer drifts into an area where
                 # there isn't enough shrinkage. Why finitial? Generally, it will
@@ -498,6 +508,7 @@ function StatsAPI.fit!(
                 optsum.finitial
             end
         end
+        println("Objective $(val) Params: $(x)")
         progress && ProgressMeter.next!(prog; showvalues=[(:objective, val)])
         !isone(iter) && iszero(rem(iter, thin)) && push!(fitlog, (copy(x), val))
         return val
@@ -831,6 +842,7 @@ nθ(m::LinearMixedModel) = length(m.parmap)
 Return negative twice the log-likelihood of model `m`
 """
 function objective(m::LinearMixedModel{T}) where {T}
+    #print("Objective Start\n")
     wts = m.sqrtwts
     denomdf = T(ssqdenom(m))
     σ = m.optsum.sigma
@@ -839,6 +851,9 @@ function objective(m::LinearMixedModel{T}) where {T}
     else
         muladd(denomdf, muladd(2, log(σ), log2π), (logdet(m) + pwrss(m) / σ^2))
     end
+
+    #print("Objective Stop\n")
+
     return isempty(wts) ? val : val - T(2.0) * sum(log, wts)
 end
 
@@ -858,14 +873,17 @@ The calling function is responsible for restoring the optimal `θ`.
 function objective! end
 
 function objective!(m::LinearMixedModel)
+    #print("objective")
     return Base.Fix1(objective!, m)
 end
 
 function objective!(m::LinearMixedModel{T}, θ) where {T}
+    #print("objective")
     return objective(updateL!(setθ!(m, θ)))
 end
 
 function objective!(m::LinearMixedModel{T}, x::Number) where {T}
+    #print("objective")
     retrm = only(m.reterms)
     isa(retrm, ReMat{T,1}) ||
         throw(DimensionMismatch("length(m.θ) = $(length(m.θ)), should be 1"))
@@ -926,12 +944,14 @@ function ranef!(
     v::Vector, m::LinearMixedModel{T}, β::AbstractArray{T}, uscale::Bool
 ) where {T}
     (k = length(v)) == length(m.reterms) || throw(DimensionMismatch(""))
-    L = m.L
-    lind = length(L)
-    for j in k:-1:1
+    L = m.L # blocked cholesky factor
+    lind = length(L) # number of blocked cholesky factor matrices
+    for j in k:-1:1 # decreaseing from k, -1 for each step, last value = 1 (k:-1:1)  -> number of random effect terms
         lind -= 1
         Ljkp1 = L[lind]
         vj = v[j]
+        #println(typeof(vj))
+        #println("$(size(vj)) vs $(size(Ljkp1, 2))")
         length(vj) == size(Ljkp1, 2) || throw(DimensionMismatch(""))
         pp1 = size(Ljkp1, 1)
         copyto!(vj, view(Ljkp1, pp1, :))
@@ -967,7 +987,7 @@ For a named variant, see [`raneftables`](@ref).
 """
 function ranef(m::LinearMixedModel{T}; uscale=false) where {T}
     reterms = m.reterms
-    v = [Matrix{T}(undef, size(t.z, 1), nlevs(t)) for t in reterms]
+    v = [Matrix{T}(undef, neffects(t), nlevs(t)) for t in reterms]
     return ranef!(v, m, uscale)
 end
 
@@ -1349,17 +1369,40 @@ function updateL!(m::LinearMixedModel{T}) where {T}
         Ljj = L[kp1choose2(j)]
 
         for jj in 1:(j - 1)
-            rankUpdate!(Hermitian(Ljj, :L), L[block(j, jj)], -one(T), one(T))
+            #println("Start Rank Update $(j) $(jj): $(now())")
+            #println("$(typeof(Ljj))")
+            #println("$(size(Ljj))")
+            b = L[block(j, jj)]
+            #println("$(typeof(b))")
+            #println("$(size(b))")
+            #display(Ljj)
+            #display(b)
+            rankUpdate!(Hermitian(Ljj, :L), b, -one(T), one(T))
+            #println("Stop Rank Update $(j) $(jj): $(now())")
         end
-
+        #println("Start Chol Unblocked $(j): $(now())")
         cholUnblocked!(Ljj, Val{:L})
+        #println("Stop Chol Unblocked $(j): $(now())")
         LjjT = isa(Ljj, Diagonal) ? Ljj : LowerTriangular(Ljj)
         for i in (j + 1):(k + 1)
             Lij = L[block(i, j)]
             for jj in 1:(j - 1)
-                mul!(Lij, L[block(i, jj)], L[block(j, jj)]', -one(T), one(T))
+                #println("Start Mul! Block $(i) $(jj): $(now())")
+                b1 = L[block(i, jj)]
+                b2 = L[block(j, jj)]'
+                #println("$(typeof(Lij)) $(typeof(b1)) $(typeof(b2))")
+                #println("$(size(b1)) $(size(b2))")
+                mul!(Lij, b1, b2, -one(T), one(T)) #C = -b1*b1' + C
+
+                #println("Stop Mul! Block $(i) $(jj): $(now())")
             end
+            #println("Start rdiv Block $(i) $(j): $(now())")
+            #println("$(typeof(Lij))")
+            #println("$(size(Lij))")
+            #println("$(typeof(LjjT))")
+            #println("$(size(LjjT))")
             rdiv!(Lij, LjjT')
+            #println("Stop rdiv Block $(i) $(j): $(now())")
         end
     end
     return m

@@ -45,6 +45,20 @@ function LinearAlgebra.mul!(
     return mul!(C, adjoint(adjA.parent.cscmat), B, α, β)
 end
 
+# this has a lot of potential for optimization
+function LinearAlgebra.mul!(
+    C::Matrix{T}, 
+    A::SparseMatrixCSC{T},
+    B::Adjoint{T,<:SparseMatrixCSC{T}},
+    α::Number,
+    β::Number,
+) where {T}
+    #println("Sparse mul")
+    #copyto!(C,((GBMatrix(A)*GBMatrix(B)).*(α)) + (β.*C))
+    copyto!(C,((A*B).*(α)) + (β.*C))
+    return C
+end
+
 function LinearAlgebra.ldiv!(
     A::UpperTriangular{T,<:Adjoint{T,UniformBlockDiagonal{T}}}, B::StridedVector{T}
 ) where {T}

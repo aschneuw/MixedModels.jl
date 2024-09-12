@@ -6,6 +6,7 @@ using BSplineKit: BSplineKit, BSplineOrder, Natural, Derivative, SplineInterpola
 using BSplineKit: interpolate
 using Compat: @compat
 using DataAPI: DataAPI, levels, refpool, refarray, refvalue
+using Dates: now
 using Distributions: Distributions, Bernoulli, Binomial, Chisq, Distribution, Gamma
 using Distributions: InverseGaussian, Normal, Poisson, ccdf
 using GLM: GLM, GeneralizedLinearModel, IdentityLink, InverseLink, LinearModel
@@ -27,6 +28,7 @@ using ProgressMeter: ProgressMeter, Progress, ProgressUnknown, finish!, next!
 using Random: Random, AbstractRNG, randn!
 using SparseArrays: SparseArrays, SparseMatrixCSC, SparseVector, dropzeros!, nnz
 using SparseArrays: nonzeros, nzrange, rowvals, sparse
+using SuiteSparseGraphBLAS: GBMatrix
 using StaticArrays: StaticArrays, SVector
 using Statistics: Statistics, mean, quantile, std
 using StatsAPI: StatsAPI, aic, aicc, bic, coef, coefnames, coeftable, confint, deviance

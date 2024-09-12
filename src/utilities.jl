@@ -70,7 +70,9 @@ function densify(A::SparseMatrixCSC, threshold::Real=0.1)
         # so make sure it's stored as such
         Diagonal(Vector(diag(A)))
     elseif nnz(A) / (m * n) ≤ threshold
+        println("Ignore dense conversion for $(m) $(n)")
         A
+        #Array(A)
     else
         Array(A)
     end

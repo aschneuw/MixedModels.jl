@@ -32,6 +32,12 @@ function cholUnblocked!(A::StridedMatrix{T}, ::Type{Val{:L}}) where {T<:BlasFloa
     else
         _, info = LAPACK.potrf!('L', A)
         iszero(info) || throw(PosDefException(info))
+
+        #C = cholesky(A)
+        #C.issuccess || throw(PosDefException("Choldmod Failure"))
+        #copyto!(A, sparse(C.L))
+
+
     end
     return A
 end

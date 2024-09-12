@@ -129,7 +129,9 @@ Base.getindex(A::ReMat, i::Integer, j::Integer) = getindex(A.adjA, j, i)
 
 Return the number of random effects represented by `A`.  Zero unless `A` is an `ReMat`.
 """
-nranef(A::ReMat) = size(A.adjA, 1)
+nranef(A::ReMat) = size(A.adjA, 1) # factor levels
+neffects(A::DefaultReMat) = size(A.z, 1) # number of variables / with or without intercept
+neffects(A::FlexReMat) = 1
 
 LinearAlgebra.cond(A::ReMat) = cond(A.λ)
 
@@ -288,6 +290,7 @@ end
 Default: multiplication for two arbitrary random intercepts
 """
 function Base.:(*)(adjA::Adjoint{T,<:DefaultReMat{T,1}}, B::DefaultReMat{T,1}) where {T}
+    println("Two random intercepts: $(size(adjA)) $(size(B))")
     A = adjA.parent
     return if A === B
         mul!(Diagonal(Vector{T}(undef, size(B, 2))), adjA, B) # do the matrix multiplication and store it as diagnonal (since Z is generated from indicator columns  Z'Z is block-diagonal)
@@ -326,16 +329,19 @@ end
 function Base.:(*)(adjA::Adjoint{T,<:DefaultReMat{T}}, B::FlexReMat{T}) where {T}
     println("multiplication for FlexRemat times ReMat")
     return sparse(MixedModels.adjA(adjA.parent.refs, adjA.parent.wtz) * adjoint(B.wtz))
+    #return Matrix(MixedModels.adjA(adjA.parent.refs, adjA.parent.wtz) * adjoint(B.wtz))
 end
 
 function Base.:(*)(adjA::Adjoint{T,<:FlexReMat{T}}, B::DefaultReMat{T}) where {T}
     println("multiplication for ReMat times FlexReMat")
     return sparse(adjA.parent.wtz * adjoint(MixedModels.adjA(B.refs, B.wtz)))
+    #return Matrix(adjA.parent.wtz * adjoint(MixedModels.adjA(B.refs, B.wtz)))
 end
 
 function Base.:(*)(adjA::Adjoint{T,<:FlexReMat{T}}, B::FlexReMat{T}) where {T}
     println("multiplication for ReMat times FlexReMat")
     return sparse(adjA.parent.wtz * adjoint(B.wtz))
+    #return Matrix(adjA.parent.wtz * adjoint(B.wtz))
 end
 
 """
@@ -667,7 +673,7 @@ function LinearAlgebra.mul!(
 end
 
 """
-???
+???  --> does not seem to be used during fitting
 """
 function LinearAlgebra.mul!(
     y::AbstractVector{<:Union{T,Missing}},
@@ -676,12 +682,15 @@ function LinearAlgebra.mul!(
     alpha::Number,
     beta::Number,
 ) where {T}
+    #println("mul! FlexRemat")
     Z = A.z
-    k, n = size(Z)
+    _, n = size(Z)
+    k = neffects(A)
     l = nlevs(A)
+    println("B $(size(B))")
     length(y) == n && size(B) == (k, l) || throw(DimensionMismatch(""))
     isone(beta) || rmul!(y, beta)
-    copyto!(y, A.z*B.*alpha + y)
+    copyto!(y, A.z'*B'.*alpha + y)
     return y
 end
 
@@ -788,6 +797,9 @@ function copyscaleinflate!(Ljj::Diagonal{T}, Ajj::Diagonal{T}, Λj::ReMat{T,1}) 
     @inbounds for i in eachindex(Ldiag, Adiag)
         Ldiag[i] = muladd(lambsq, Adiag[i], one(T))
     end
+
+    #println("Diagnoal ReMat")
+    #println(Ljj[1,1])
     return Ljj
 end
 
@@ -815,6 +827,8 @@ function copyscaleinflate!(
             f[i] += one(T)  # inflate diagonal
         end
     end
+    #println("UniformBlockDiagonal ReMat")
+    #println(Ljj[1,1])
     return Ljj
 end
 
@@ -843,28 +857,21 @@ end
 
 """
 test
+we need to scale each row and each column by lambda
 """
 function copyscaleinflate!(
     Ljj::Matrix{T},
     Ajj::Matrix{T},
     Λj::FlexReMat{T},
 ) where {T}
+    #println("start copyscaleinflate flexremat $(now())")
     S = 1
-    copyto!(Ljj, Ajj)
     n = LinearAlgebra.checksquare(Ljj)
     q, r = divrem(n, S)
     iszero(r) || throw(DimensionMismatch("size(Ljj, 1) is not a multiple of S"))
-    λ = Λj.λ
-    offset = 0
-    @inbounds for _ in 1:q
-        inds = (offset + 1):(offset + S)
-        tmp = view(Ljj, inds, inds)
-        lmul!(adjoint(λ), rmul!(tmp, λ))
-        offset += S
-    end
-    for k in diagind(Ljj)
-        Ljj[k] += one(T)
-    end
+    λ = Λj.λ[1,1]
+    copyto!(Ljj, Ajj.*(λ*λ) + I*1)
+    #println("stop copyscaleinflate flexremat $(now())")
     return Ljj
 end
 
