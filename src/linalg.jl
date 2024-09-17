@@ -54,7 +54,7 @@ function LinearAlgebra.mul!(
     β::Number,
 ) where {T}
     #println("Sparse mul")
-    #copyto!(C,((GBMatrix(A)*GBMatrix(B)).*(α)) + (β.*C))
+    #copyto!(C,((GBMatrix(A)*GBMatrix(B.parent)').*(α)) + (β.*C))
     copyto!(C,((A*B).*(α)) + (β.*C))
     return C
 end

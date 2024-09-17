@@ -54,16 +54,16 @@ end
 A `SparseMatrixCSC` whose nonzeros form blocks of rows or columns or both.
 
 # Members
-* `cscmat`: `SparseMatrixCSC{Tv, Int32}` representation for general calculations
+* `cscmat`: `SparseMatrixCSC{Tv, Int64}` representation for general calculations
 * `nzasmat`: nonzeros of `cscmat` as a dense matrix
 * `colblkptr`: pattern of blocks of columns
 
 The only time these are created are as products of `ReMat`s.
 """
 mutable struct BlockedSparse{T,S,P} <: AbstractMatrix{T}
-    cscmat::SparseMatrixCSC{T,Int32}
+    cscmat::SparseMatrixCSC{T,Int64}
     nzsasmat::Matrix{T}
-    colblkptr::Vector{Int32}
+    colblkptr::Vector{Int64}
 end
 
 function densify(A::BlockedSparse, threshold::Real=0.1)

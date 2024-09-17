@@ -144,7 +144,7 @@ end
 # extract vector of refs from ranef grouping term and data
 function _ranef_refs(grp::CategoricalTerm, d::NamedTuple)
     invindex = grp.contrasts.invindex
-    refs = convert(Vector{Int32}, getindex.(Ref(invindex), d[grp.sym]))
+    refs = convert(Vector{Int64}, getindex.(Ref(invindex), d[grp.sym]))
     return refs, grp.contrasts.levels
 end
 
@@ -154,7 +154,7 @@ function _ranef_refs(
     combos = zip(getproperty.(Ref(d), [g.sym for g in grp.terms])...)
     uniques = unique(combos)
     invindex = Dict(x => i for (i, x) in enumerate(uniques))
-    refs = convert(Vector{Int32}, getindex.(Ref(invindex), combos))
+    refs = convert(Vector{Int64}, getindex.(Ref(invindex), combos))
     return refs, uniques
 end
 
